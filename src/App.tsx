@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 // Tone.js será carregado dinamicamente para o alerta sonoro.
+
+// Defina uma interface global para o Tone.js para evitar erros de tipo
+declare global {
+	interface Window {
+		Tone: any;
+	}
+}
 
 function App() {
 	// --- STATE MANAGEMENT (useState) ---
@@ -10,7 +17,7 @@ function App() {
 	const [status, setStatus] = useState("idle"); // 'idle', 'running', ou 'paused'
 	const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
 	const [completionMessage, setCompletionMessage] = useState("");
-	const [deadline, setDeadline] = useState(null);
+	const [deadline, setDeadline] = useState<number | null>(null);
 	// Adicionado para evitar que o estado inicial substitua o estado guardado ao carregar
 	const [isInitialized, setIsInitialized] = useState(false);
 
@@ -158,7 +165,7 @@ function App() {
 			return;
 		}
 
-		let interval = null;
+		let interval: number | undefined = undefined;
 
 		if (status === "running" && deadline) {
 			interval = setInterval(() => {
@@ -167,7 +174,11 @@ function App() {
 			}, 1000);
 		}
 
-		return () => clearInterval(interval);
+		return () => {
+			if (interval) {
+				clearInterval(interval);
+			}
+		};
 	}, [status, deadline, timeLeft, handleTimerCompletion]);
 
 	const startTimer = () => {
@@ -207,7 +218,7 @@ function App() {
 		setTimeLeft(focusDuration * 60);
 	};
 
-	const updateFocusDuration = (e) => {
+	const updateFocusDuration = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const value = parseInt(e.target.value, 10) || 1;
 		setFocusDuration(value);
 		if (status === "idle" && mode === "focus") {
@@ -215,7 +226,7 @@ function App() {
 		}
 	};
 
-	const updateBreakDuration = (e) => {
+	const updateBreakDuration = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const value = parseInt(e.target.value, 10) || 1;
 		setBreakDuration(value);
 		if (status === "idle" && mode === "break") {
@@ -223,7 +234,7 @@ function App() {
 		}
 	};
 
-	const handleInputFocus = (e) => {
+	const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
 		e.target.select();
 	};
 
