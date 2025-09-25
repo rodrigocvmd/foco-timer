@@ -230,7 +230,7 @@ function App() {
       `}</style>
       <div className="w-full max-w-md bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-6">
         <header className="text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-cyan-400">Foco Timer</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-cyan-400">Foco</h1>
           <p className="text-slate-400 mt-2">{headerMessage}</p>
         </header>
 
