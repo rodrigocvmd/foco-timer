@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, ChangeEvent, FocusEvent, useRef } from 'react';
 
 // Tone.js será carregado dinamicamente para o alerta sonoro.
 
+// Adiciona a declaração do Tone para o escopo global da window
+declare global {
+  interface Window {
+    Tone: any;
+  }
+}
+
 function App() {
   // --- STATE MANAGEMENT (useState) ---
-  const [focusDuration, setFocusDuration] = useState(50);
+  // --- STATE MANAGEMENT (useState) ---
+  const [focusDuration, setFocusDuration] = useState(30);
   const [breakDuration, setBreakDuration] = useState(10);
   const [mode, setMode] = useState('focus'); // 'focus' ou 'break'
   const [status, setStatus] = useState('idle'); // 'idle', 'running', ou 'paused'
   const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
   const [completionMessage, setCompletionMessage] = useState('');
-  const [deadline, setDeadline] = useState(null);
+  const [deadline, setDeadline] = useState<number | null>(null);
   // Adicionado para evitar que o estado inicial substitua o estado guardado ao carregar
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -22,7 +30,7 @@ function App() {
       const savedStateJSON = localStorage.getItem('pomodoroAppState');
       if (savedStateJSON) {
         const savedState = JSON.parse(savedStateJSON);
-        setFocusDuration(savedState.focusDuration || 50);
+        setFocusDuration(savedState.focusDuration || 30);
         setBreakDuration(savedState.breakDuration || 10);
         setMode(savedState.mode || 'focus');
         setCompletionMessage(savedState.completionMessage || '');
@@ -41,7 +49,7 @@ function App() {
           }
         } else {
           setStatus(savedState.status || 'idle');
-          setTimeLeft(savedState.timeLeft !== undefined ? savedState.timeLeft : (savedState.focusDuration || 50) * 60);
+          setTimeLeft(savedState.timeLeft !== undefined ? savedState.timeLeft : (savedState.focusDuration || 30) * 60);
           setDeadline(null);
         }
       }
@@ -91,34 +99,24 @@ function App() {
   }, [status, mode]);
 
   // --- SIDE EFFECTS (useEffect) ---
-  useEffect(() => {
-    const scriptId = 'tone-js-script';
-    if (document.getElementById(scriptId)) return;
-
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.min.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      const existingScript = document.getElementById(scriptId);
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-    };
-  }, []);
 
   // --- EVENT HANDLERS & ACTIONS (useCallback) ---
-  const playSound = useCallback(() => {
-    if (typeof window.Tone !== 'undefined') {
-      // Um som de alarme um pouco mais notável para o fim da pausa
-      const synth = new window.Tone.Synth().toDestination();
-      const now = window.Tone.now();
-      synth.triggerAttackRelease("C5", "0.2", now);
-      synth.triggerAttackRelease("G5", "0.2", now + 0.3);
-    } else {
-      console.warn("Tone.js não carregado. Não foi possível tocar o som.");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playSound = useCallback(async (loop = false) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const audio = new Audio('/beep.mp3');
+    audio.loop = loop;
+    audio.play();
+    audioRef.current = audio;
+  }, []);
+
+  const stopSound = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
   }, []);
 
@@ -126,20 +124,19 @@ function App() {
     setDeadline(null);
     setStatus('idle');
     if (mode === 'focus') {
-      // Define a duração da pausa como 1/5 da duração do foco, arredondado para cima
-      const newBreakDuration = Math.ceil(focusDuration / 5);
-      setBreakDuration(newBreakDuration);
+      setBreakDuration(10);
       setMode('break');
       setCompletionMessage('Foco finalizado');
-      setTimeLeft(newBreakDuration * 60);
+      setTimeLeft(10 * 60);
     } else { // Fim da pausa
-      // Toca o som de alarme ao final da pausa
-      playSound();
+      playSound(true);
+      setFocusDuration(30);
+      setBreakDuration(10);
       setMode('focus');
-      setCompletionMessage('Fim da pausa');
-      setTimeLeft(focusDuration * 60);
+      setCompletionMessage('');
+      setTimeLeft(30 * 60);
     }
-  }, [mode, focusDuration, playSound]);
+  }, [mode, playSound]);
 
   // --- LÓGICA DO TEMPORIZADOR ---
   useEffect(() => {
@@ -147,9 +144,9 @@ function App() {
       handleTimerCompletion();
       return;
     }
-    let interval = null;
+    let interval: number | null = null;
     if (status === 'running' && deadline) {
-      interval = setInterval(() => {
+      interval = window.setInterval(() => {
         const remaining = deadline - Date.now();
         setTimeLeft(Math.max(0, Math.round(remaining / 1000)));
       }, 1000);
@@ -159,11 +156,8 @@ function App() {
     };
   }, [status, deadline, timeLeft, handleTimerCompletion]);
 
-  const startTimer = async () => {
-    // CORREÇÃO: Ativa o contexto de áudio na primeira interação do utilizador
-    if (typeof window.Tone !== 'undefined' && window.Tone.context.state !== 'running') {
-      await window.Tone.start();
-    }
+  const startTimer = () => {
+    stopSound();
     setCompletionMessage('');
     setStatus('running');
     setDeadline(Date.now() + timeLeft * 1000);
@@ -191,7 +185,7 @@ function App() {
   };
 
   const resetToStart = () => {
-    const defaultFocusTime = 50;
+    const defaultFocusTime = 30;
     setFocusDuration(defaultFocusTime);
     setMode('focus');
     setStatus('idle');
@@ -200,7 +194,7 @@ function App() {
     setTimeLeft(defaultFocusTime * 60);
   };
 
-  const updateFocusDuration = (e) => {
+  const updateFocusDuration = (e: ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10) || 1;
     setFocusDuration(value);
     if (status === 'idle' && mode === 'focus') {
@@ -208,7 +202,7 @@ function App() {
     }
   };
 
-  const updateBreakDuration = (e) => {
+  const updateBreakDuration = (e: ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10) || 1;
     setBreakDuration(value);
     if (status === 'idle' && mode === 'break') {
@@ -216,7 +210,7 @@ function App() {
     }
   };
 
-  const handleInputFocus = (e) => {
+  const handleInputFocus = (e: FocusEvent<HTMLInputElement>) => {
     e.target.select();
   };
 
@@ -229,7 +223,7 @@ function App() {
           -webkit-appearance: none;
           margin: 0;
         }
-        input[type='number'] {
+        input[type='number'] { 
           -moz-appearance: textfield;
         }
       `}</style>
@@ -311,4 +305,3 @@ function App() {
 }
 
 export default App;
-
