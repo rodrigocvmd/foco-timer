@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, ChangeEvent, FocusEvent, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { ChangeEvent, FocusEvent } from 'react';
 
 // Tone.js será carregado dinamicamente para o alerta sonoro.
 
